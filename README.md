@@ -2,6 +2,10 @@
 <p align="center">Utility library for various HTTP related task in Golang</p>
 
 <p align="center">
+  <a href="https://pkg.go.dev/github.com/shahariaazam/httpmama"><img src="https://pkg.go.dev/badge/github.com/shahariaazam/httpmama.svg" height="20"/></a>
+</p><br/><br/>
+
+<p align="center">
   <a href="https://github.com/shahariaazam/httpmama/actions/workflows/CI.yaml"><img src="https://github.com/shahariaazam/httpmama/actions/workflows/CI.yaml/badge.svg" height="20"/></a>
   <a href="https://codecov.io/gh/shahariaazam/httpmama"><img src="https://codecov.io/gh/shahariaazam/httpmama/branch/master/graph/badge.svg?token=NKTKQ45HDN" height="20"/></a>
   <a href="https://sonarcloud.io/summary/new_code?id=shahariaazam_httpmama"><img src="https://sonarcloud.io/api/project_badges/measure?project=shahariaazam_httpmama&metric=reliability_rating" height="20"/></a>
