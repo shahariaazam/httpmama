@@ -26,50 +26,55 @@ go get github.com/shahariaazam/httpmama
 package main
 
 import (
-    "fmt"
-    "net/http"
-    "net/http/httptest"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 
-    "github.com/shahariaazam/httpmama"
+	"github.com/shahariaazam/httpmama"
 )
 
 func main() {
-    endpoint1 := httptest.endpointConfig{
-        Path:           "/foo",
-        ResponseString: "hello, world!",
-        ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
-    }
+	endpoint1 := httpmama.TestEndpoint{
+		Path:           "/foo",
+		ResponseString: "hello, world!",
+		ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
+	}
 
-    endpoint2 := httptest.endpointConfig{
-        Path:           "/bar",
-        ResponseString: "goodbye, world!",
-        ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
-    }
+	endpoint2 := httpmama.TestEndpoint{
+		Path:           "/bar",
+		ResponseString: "goodbye, world!",
+		ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
+	}
 
-    config := httptest.serverConfig{
-        Endpoints: []httptest.endpointConfig{endpoint1, endpoint2},
-    }
+	config := httpmama.ServerConfig{
+		TestEndpoints: []httpmama.TestEndpoint{endpoint1, endpoint2},
+	}
 
-    // create the server
-    server := httptest.CreateTestServer(config)
-    defer server.Close()
+	// Create the server
+	server := httpmama.NewTestServer(config)
+	defer server.Close()
 
+	// Start making request to the server
+	resp, err := http.Get(server.URL + "/foo")
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
 
-    // make request to the server
-    resp, err := http.Get(server.URL + "/foo")
-    if err != nil {
-        panic(err)
-    }
-    defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
 
-    body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-        panic(err)
-    }
-
-    fmt.Println(string(body)) // Output: "hello, world!"
+	fmt.Println(string(body)) // Output: "hello, world!"
 }
+
 ```
+
+## Documentation
+
+Full documentation is available on [pkg.go.dev/github.com/shahariaazam/httpmama](https://pkg.go.dev/github.com/shahariaazam/httpmama#section-documentation)
+
 
 ### 📝 License
 
