@@ -7,23 +7,23 @@ import (
 )
 
 func TestCreateTestServer(t *testing.T) {
-	endpoint1 := endpointConfig{
+	endpoint1 := TestEndpoint{
 		Path:           "/foo",
 		ResponseString: "hello, world!",
 		ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
 	}
 
-	endpoint2 := endpointConfig{
+	endpoint2 := TestEndpoint{
 		Path:           "/bar",
 		ResponseString: "goodbye, world!",
 		ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
 	}
 
-	config := serverConfig{
-		Endpoints: []endpointConfig{endpoint1, endpoint2},
+	config := ServerConfig{
+		TestEndpoints: []TestEndpoint{endpoint1, endpoint2},
 	}
 
-	server := CreateTestServer(config)
+	server := NewTestServer(config)
 	defer server.Close()
 
 	resp1, err := http.Get(server.URL + "/foo")
