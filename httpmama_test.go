@@ -1,6 +1,7 @@
 package httpmama
 
 import (
+	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -31,31 +32,62 @@ func TestCreateTestServer(t *testing.T) {
 			ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
 			QueryParams:    url.Values{"name": []string{"doe"}},
 		},
+		{
+			Path:           "/user",
+			ResponseString: "hello, doe! Age: 30",
+			ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
+			QueryParams:    url.Values{"name": []string{"doe"}, "age": []string{"30"}},
+		},
+		{
+			Path:           "/return-json",
+			ResponseString: `{"hello": "world"}`,
+			ResponseHeader: http.Header{"Content-Type": []string{"application/json"}, "Some-Other-Header": []string{"some-other-header"}},
+		},
 	}
+
 	testCases := []struct {
-		name            string
-		endpoints       []TestEndpoint
-		requestPath     string
-		expectedBody    string
-		expectedHeaders http.Header
+		name               string
+		endpoints          []TestEndpoint
+		requestPath        string
+		expectedBody       string
+		expectedHeaders    map[string]string
+		expectedStatusCode int
 	}{
 		{
 			name:            "single endpoint",
 			requestPath:     "/foo",
 			expectedBody:    "hello, world!",
-			expectedHeaders: http.Header{"Content-Type": []string{"text/plain"}},
+			expectedHeaders: map[string]string{"Content-Type": "text/plain"},
 		},
 		{
-			name:            "multiple endpoints",
-			requestPath:     "/bar",
-			expectedBody:    "goodbye, world!",
-			expectedHeaders: http.Header{"Content-Type": []string{"text/plain"}},
+			name:            "endpoint with single query params",
+			requestPath:     "/user?" + url.Values{"name": []string{"doe"}}.Encode(),
+			expectedBody:    "hello, doe!",
+			expectedHeaders: map[string]string{"Content-Type": "text/plain"},
 		},
 		{
-			name:            "endpoint with query params",
-			requestPath:     "/user?" + url.Values{"name": []string{"john"}}.Encode(),
-			expectedBody:    "hello, john!",
-			expectedHeaders: http.Header{"Content-Type": []string{"text/plain"}},
+			name:            "endpoint with multiple query params",
+			requestPath:     "/user?" + url.Values{"name": []string{"doe"}, "age": []string{"30"}}.Encode(),
+			expectedBody:    "hello, doe! Age: 30",
+			expectedHeaders: map[string]string{"Content-Type": "text/plain"},
+		},
+		{
+			name:            "non-existent endpoint should return 404",
+			requestPath:     "/something/else",
+			expectedBody:    "404 page not found\n",
+			expectedHeaders: map[string]string{"Content-Type": "text/plain; charset=utf-8"},
+		},
+		{
+			name:            "returning json with correct header",
+			requestPath:     "/return-json",
+			expectedBody:    `{"hello": "world"}`,
+			expectedHeaders: map[string]string{"Content-Type": "application/json"},
+		},
+		{
+			name:            "return multiple header",
+			requestPath:     "/return-json",
+			expectedBody:    `{"hello": "world"}`,
+			expectedHeaders: map[string]string{"Content-Type": "application/json", "Some-Other-Header": "some-other-header"},
 		},
 	}
 
@@ -76,12 +108,10 @@ func TestCreateTestServer(t *testing.T) {
 				t.Errorf("error reading response body: %v", err)
 			}
 
-			if string(body) != tc.expectedBody {
-				t.Errorf("expected response body to be '%s', got '%s'", tc.expectedBody, string(body))
-			}
+			assert.Equal(t, tc.expectedBody, string(body))
 
-			if resp.Header.Get("Content-Type") != "text/plain" {
-				t.Errorf("expected Content-Type header to be 'text/plain', got '%s'", resp.Header.Get("Content-Type"))
+			for hk, hv := range tc.expectedHeaders {
+				assert.Equal(t, hv, resp.Header.Get(hk))
 			}
 		})
 	}
