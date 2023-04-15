@@ -3,56 +3,89 @@ package httpmama
 import (
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"testing"
 )
 
 func TestCreateTestServer(t *testing.T) {
-	endpoint1 := TestEndpoint{
-		Path:           "/foo",
-		ResponseString: "hello, world!",
-		ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
+	testCases := []struct {
+		name            string
+		endpoints       []TestEndpoint
+		requestPath     string
+		expectedBody    string
+		expectedHeaders http.Header
+	}{
+		{
+			name: "single endpoint",
+			endpoints: []TestEndpoint{
+				{
+					Path:           "/foo",
+					ResponseString: "hello, world!",
+					ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
+				},
+			},
+			requestPath:     "/foo",
+			expectedBody:    "hello, world!",
+			expectedHeaders: http.Header{"Content-Type": []string{"text/plain"}},
+		},
+		{
+			name: "multiple endpoints",
+			endpoints: []TestEndpoint{
+				{
+					Path:           "/foo",
+					ResponseString: "hello, world!",
+					ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
+				},
+				{
+					Path:           "/bar",
+					ResponseString: "goodbye, world!",
+					ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
+				},
+			},
+			requestPath:     "/bar",
+			expectedBody:    "goodbye, world!",
+			expectedHeaders: http.Header{"Content-Type": []string{"text/plain"}},
+		},
+		{
+			name: "endpoint with query params",
+			endpoints: []TestEndpoint{
+				{
+					Path:           "/user",
+					ResponseString: "hello, john!",
+					ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
+					QueryParams:    url.Values{"name": []string{"john"}},
+				},
+			},
+			requestPath:     "/user?" + url.Values{"name": []string{"john"}}.Encode(),
+			expectedBody:    "hello, john!",
+			expectedHeaders: http.Header{"Content-Type": []string{"text/plain"}},
+		},
 	}
 
-	endpoint2 := TestEndpoint{
-		Path:           "/bar",
-		ResponseString: "goodbye, world!",
-		ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
-	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			config := ServerConfig{TestEndpoints: tc.endpoints}
+			server := NewTestServer(config)
+			defer server.Close()
 
-	config := ServerConfig{
-		TestEndpoints: []TestEndpoint{endpoint1, endpoint2},
-	}
+			resp, err := http.Get(server.URL + tc.requestPath)
+			if err != nil {
+				t.Errorf("error making GET request: %v", err)
+			}
+			defer resp.Body.Close()
 
-	server := NewTestServer(config)
-	defer server.Close()
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				t.Errorf("error reading response body: %v", err)
+			}
 
-	resp1, err := http.Get(server.URL + "/foo")
-	if err != nil {
-		t.Errorf("error making GET request: %v", err)
-	}
-	defer resp1.Body.Close()
+			if string(body) != tc.expectedBody {
+				t.Errorf("expected response body to be '%s', got '%s'", tc.expectedBody, string(body))
+			}
 
-	body1, err := ioutil.ReadAll(resp1.Body)
-	if err != nil {
-		t.Errorf("error reading response body: %v", err)
-	}
-
-	if string(body1) != "hello, world!" {
-		t.Errorf("expected response body to be 'hello, world!', got '%s'", string(body1))
-	}
-
-	resp2, err := http.Get(server.URL + "/bar")
-	if err != nil {
-		t.Errorf("error making GET request: %v", err)
-	}
-	defer resp2.Body.Close()
-
-	body2, err := ioutil.ReadAll(resp2.Body)
-	if err != nil {
-		t.Errorf("error reading response body: %v", err)
-	}
-
-	if string(body2) != "goodbye, world!" {
-		t.Errorf("expected response body to be 'goodbye, world!', got '%s'", string(body2))
+			if resp.Header.Get("Content-Type") != "text/plain" {
+				t.Errorf("expected Content-Type header to be 'text/plain', got '%s'", resp.Header.Get("Content-Type"))
+			}
+		})
 	}
 }
