@@ -8,6 +8,30 @@ import (
 )
 
 func TestCreateTestServer(t *testing.T) {
+	testEndpoints := []TestEndpoint{
+		{
+			Path:           "/foo",
+			ResponseString: "hello, world!",
+			ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
+		},
+		{
+			Path:           "/bar",
+			ResponseString: "goodbye, world!",
+			ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
+		},
+		{
+			Path:           "/user",
+			ResponseString: "hello, john!",
+			ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
+			QueryParams:    url.Values{"name": []string{"john"}},
+		},
+		{
+			Path:           "/user",
+			ResponseString: "hello, doe!",
+			ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
+			QueryParams:    url.Values{"name": []string{"doe"}},
+		},
+	}
 	testCases := []struct {
 		name            string
 		endpoints       []TestEndpoint
@@ -16,58 +40,31 @@ func TestCreateTestServer(t *testing.T) {
 		expectedHeaders http.Header
 	}{
 		{
-			name: "single endpoint",
-			endpoints: []TestEndpoint{
-				{
-					Path:           "/foo",
-					ResponseString: "hello, world!",
-					ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
-				},
-			},
+			name:            "single endpoint",
 			requestPath:     "/foo",
 			expectedBody:    "hello, world!",
 			expectedHeaders: http.Header{"Content-Type": []string{"text/plain"}},
 		},
 		{
-			name: "multiple endpoints",
-			endpoints: []TestEndpoint{
-				{
-					Path:           "/foo",
-					ResponseString: "hello, world!",
-					ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
-				},
-				{
-					Path:           "/bar",
-					ResponseString: "goodbye, world!",
-					ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
-				},
-			},
+			name:            "multiple endpoints",
 			requestPath:     "/bar",
 			expectedBody:    "goodbye, world!",
 			expectedHeaders: http.Header{"Content-Type": []string{"text/plain"}},
 		},
 		{
-			name: "endpoint with query params",
-			endpoints: []TestEndpoint{
-				{
-					Path:           "/user",
-					ResponseString: "hello, john!",
-					ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
-					QueryParams:    url.Values{"name": []string{"john"}},
-				},
-			},
+			name:            "endpoint with query params",
 			requestPath:     "/user?" + url.Values{"name": []string{"john"}}.Encode(),
 			expectedBody:    "hello, john!",
 			expectedHeaders: http.Header{"Content-Type": []string{"text/plain"}},
 		},
 	}
 
+	config := ServerConfig{TestEndpoints: testEndpoints}
+	server := NewTestServer(config)
+	defer server.Close()
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			config := ServerConfig{TestEndpoints: tc.endpoints}
-			server := NewTestServer(config)
-			defer server.Close()
-
 			resp, err := http.Get(server.URL + tc.requestPath)
 			if err != nil {
 				t.Errorf("error making GET request: %v", err)
