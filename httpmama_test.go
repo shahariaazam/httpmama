@@ -3,56 +3,117 @@ package httpmama
 import (
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateTestServer(t *testing.T) {
-	endpoint1 := TestEndpoint{
-		Path:           "/foo",
-		ResponseString: "hello, world!",
-		ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
+	testEndpoints := []TestEndpoint{
+		{
+			Path:           "/foo",
+			ResponseString: "hello, world!",
+			ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
+		},
+		{
+			Path:           "/bar",
+			ResponseString: "goodbye, world!",
+			ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
+		},
+		{
+			Path:           "/user",
+			ResponseString: "hello, john!",
+			ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
+			QueryParams:    url.Values{"name": []string{"john"}},
+		},
+		{
+			Path:           "/user",
+			ResponseString: "hello, doe!",
+			ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
+			QueryParams:    url.Values{"name": []string{"doe"}},
+		},
+		{
+			Path:           "/user",
+			ResponseString: "hello, doe! Age: 30",
+			ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
+			QueryParams:    url.Values{"name": []string{"doe"}, "age": []string{"30"}},
+		},
+		{
+			Path:           "/return-json",
+			ResponseString: `{"hello": "world"}`,
+			ResponseHeader: http.Header{"Content-Type": []string{"application/json"}, "Some-Other-Header": []string{"some-other-header"}},
+		},
 	}
 
-	endpoint2 := TestEndpoint{
-		Path:           "/bar",
-		ResponseString: "goodbye, world!",
-		ResponseHeader: http.Header{"Content-Type": []string{"text/plain"}},
+	testCases := []struct {
+		name               string
+		endpoints          []TestEndpoint
+		requestPath        string
+		expectedBody       string
+		expectedHeaders    map[string]string
+		expectedStatusCode int
+	}{
+		{
+			name:            "single endpoint",
+			requestPath:     "/foo",
+			expectedBody:    "hello, world!",
+			expectedHeaders: map[string]string{"Content-Type": "text/plain"},
+		},
+		{
+			name:            "endpoint with single query params",
+			requestPath:     "/user?" + url.Values{"name": []string{"doe"}}.Encode(),
+			expectedBody:    "hello, doe!",
+			expectedHeaders: map[string]string{"Content-Type": "text/plain"},
+		},
+		{
+			name:            "endpoint with multiple query params",
+			requestPath:     "/user?" + url.Values{"name": []string{"doe"}, "age": []string{"30"}}.Encode(),
+			expectedBody:    "hello, doe! Age: 30",
+			expectedHeaders: map[string]string{"Content-Type": "text/plain"},
+		},
+		{
+			name:            "non-existent endpoint should return 404",
+			requestPath:     "/something/else",
+			expectedBody:    "404 page not found\n",
+			expectedHeaders: map[string]string{"Content-Type": "text/plain; charset=utf-8"},
+		},
+		{
+			name:            "returning json with correct header",
+			requestPath:     "/return-json",
+			expectedBody:    `{"hello": "world"}`,
+			expectedHeaders: map[string]string{"Content-Type": "application/json"},
+		},
+		{
+			name:            "return multiple header",
+			requestPath:     "/return-json",
+			expectedBody:    `{"hello": "world"}`,
+			expectedHeaders: map[string]string{"Content-Type": "application/json", "Some-Other-Header": "some-other-header"},
+		},
 	}
 
-	config := ServerConfig{
-		TestEndpoints: []TestEndpoint{endpoint1, endpoint2},
-	}
-
+	config := ServerConfig{TestEndpoints: testEndpoints}
 	server := NewTestServer(config)
 	defer server.Close()
 
-	resp1, err := http.Get(server.URL + "/foo")
-	if err != nil {
-		t.Errorf("error making GET request: %v", err)
-	}
-	defer resp1.Body.Close()
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			resp, err := http.Get(server.URL + tc.requestPath)
+			if err != nil {
+				t.Errorf("error making GET request: %v", err)
+			}
+			defer resp.Body.Close()
 
-	body1, err := ioutil.ReadAll(resp1.Body)
-	if err != nil {
-		t.Errorf("error reading response body: %v", err)
-	}
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				t.Errorf("error reading response body: %v", err)
+			}
 
-	if string(body1) != "hello, world!" {
-		t.Errorf("expected response body to be 'hello, world!', got '%s'", string(body1))
-	}
+			assert.Equal(t, tc.expectedBody, string(body))
 
-	resp2, err := http.Get(server.URL + "/bar")
-	if err != nil {
-		t.Errorf("error making GET request: %v", err)
-	}
-	defer resp2.Body.Close()
-
-	body2, err := ioutil.ReadAll(resp2.Body)
-	if err != nil {
-		t.Errorf("error reading response body: %v", err)
-	}
-
-	if string(body2) != "goodbye, world!" {
-		t.Errorf("expected response body to be 'goodbye, world!', got '%s'", string(body2))
+			for hk, hv := range tc.expectedHeaders {
+				assert.Equal(t, hv, resp.Header.Get(hk))
+			}
+		})
 	}
 }
